@@ -20,9 +20,12 @@ authors:
     given-names: Denise M.
     orcid: "https://orcid.org/0000-0001-6165-7389"
     affiliation: "Northwest Missouri State University, School of Computer Science and Information Systems, Maryville, MO, USA"
+  - family-names: Dawson
+    given-names: Branton J.
+    affiliation: "Northwest Missouri State University, School of Computer Science and Information Systems, Maryville, MO, USA"
 
-repository-code: "https://github.com/denisecase/streaming-03-analytics"
-url: "https://github.com/denisecase/streaming-03-analytics"
+repository-code: "https://github.com/bjdawson23/streaming-03-analytics"
+url: "https://github.com/bjdawson23/streaming-03-analytics"
 license: MIT
 
 abstract: >
