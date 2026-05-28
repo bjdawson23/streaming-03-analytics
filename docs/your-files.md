@@ -24,6 +24,12 @@ For example:
 ```text
 src/streaming/kafka_producer_case.py
 src/streaming/kafka_producer_buzz.py
+src/streaming/data_engineering/derived_fields_dawson.py
+src/streaming/data_validation/data_validation_dawson.py
+src/streaming/data_validation/data_contract_dawson
+src/streaming/kafka_consumer_dawson.py
+src/streaming/kafka_producer_dawson.py
+src/streaming/kafka_admin_dawson.py
 ```
 
 ## 2. Python File Execution Command
@@ -34,6 +40,16 @@ Use this command to run your file. For example:
 ```shell
 uv run python -m streaming.kafka_producer_case
 uv run python -m streaming.kafka_producer_buzz
+```
+
+## Phase 4 & 5 Changes
+
+```text
+Changed KAFKA_CLEAR_TOPIC_ON_START=false in .env.
+  That means it will reprocess older messages already stored in the topic and creating duplicates.
+Changed KAFKA_CLEAR_TOPIC_ON_START=true in .env (back to original setting)
+  This shows the latest consumed messages only.
+Changed the Kafka topic set in .env: streaming-03-analytics-dawson
 ```
 
 ## 3. Data Files

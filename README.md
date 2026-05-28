@@ -172,7 +172,7 @@ bin/kafka-topics.sh --create \
   --bootstrap-server localhost:9092 \
   --partitions 1 \
   --replication-factor 1 \
-  --topic streaming-03-analytics-case
+  --topic streaming-03-analytics-dawson
 ```
 
 ### In VS Code Terminal 3: Run Project and Producer (producer)
@@ -200,6 +200,7 @@ uvx pre-commit run --all-files
 # run the producer
 clear
 uv run python -m streaming.kafka_producer_case
+uv run python -m streaming.kafka_producer_dawson
 
 # do chores
 uv run ruff format .
@@ -231,6 +232,27 @@ To start fresh, see
 to delete the topic and recreate it.
 
 </details>
+
+## Python Files
+
+```text
+src/streaming/data_engineering/derived_fields_dawson.py
+src/streaming/data_validation/data_validation_dawson.py
+src/streaming/data_validation/data_contract_dawson
+src/streaming/kafka_consumer_dawson.py
+src/streaming/kafka_producer_dawson.py
+src/streaming/kafka_admin_dawson.py
+```
+
+## Phase 4 & 5 Changes
+
+```text
+Changed KAFKA_CLEAR_TOPIC_ON_START=false in .env.
+  That means it will reprocess older messages already stored in the topic and creating duplicates.
+Changed KAFKA_CLEAR_TOPIC_ON_START=true in .env (back to original setting)
+  This shows the latest consumed messages only.
+Changed the Kafka topic set in .env: streaming-03-analytics-dawson
+```
 
 ## Notes
 
