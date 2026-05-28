@@ -224,7 +224,7 @@ Clear the terminal, then start the consumer.
 
 ```shell
 clear
-uv run python -m streaming.kafka_consumer_case
+uv run python -m streaming.kafka_consumer_dawson
 ```
 
 To start fresh, see
@@ -247,12 +247,43 @@ src/streaming/kafka_admin_dawson.py
 ## Phase 4 & 5 Changes
 
 ```text
-Changed KAFKA_CLEAR_TOPIC_ON_START=false in .env.
+Phase 4. Changed KAFKA_CLEAR_TOPIC_ON_START=false in .env.
   That means it will reprocess older messages already stored in the topic and creating duplicates.
-Changed KAFKA_CLEAR_TOPIC_ON_START=true in .env (back to original setting)
+Phase 4. Changed KAFKA_CLEAR_TOPIC_ON_START=true in .env (back to original setting)
   This shows the latest consumed messages only.
-Changed the Kafka topic set in .env: streaming-03-analytics-dawson
+Phase 4. Changed the Kafka topic set in .env: streaming-03-analytics-dawson
+Phase 5. I modified the consumer to write an additional summary CSV and generate a chart that shows payment methods by region.
 ```
+
+### Results
+
+Describe what happened when you ran the producer and consumer.
+
+The producer ran successfully and delivered the sales messages to Kafka.
+
+The consumer also ran successfully and processed the messages from the topic.
+
+In the most recent run, 178 messages were accepted and 0 were skipped.
+
+The main output CSV contains the accepted sales records with the derived fields `subtotal`, `tax_amount`, and `total`.
+
+The additional output files are `payment_methods_by_region_dawson.csv` and `payment_methods_by_region_dawson.png` in `data/output/`.
+
+The logs show each message being validated, enriched, accepted, and included in the running summary statistics.
+
+More documentation can be found in:  **docs/** - the project narrative and documentation
+
+### Interpretation
+
+Compared with the original example, this version adds project-specific validation, enrichment, and reporting for a sales stream.
+
+I learned that validation is essential in a streaming pipeline because bad records need to be filtered before they affect calculations or reports.
+
+I also learned that enrichment works best when it stays close to the consumer, where reference data is available and calculations can be done immediately as messages arrive.
+
+The running summaries show how revenue changes over time and help reveal typical order sizes as well as outliers.
+
+The payment-method-by-region output adds business intelligence by showing where different payment options are used most often, which could help with marketing, fraud review, or checkout optimization.
 
 ## Notes
 

@@ -46,6 +46,7 @@ from datafun_streaming.kafka.kafka_settings import KafkaSettings
 from datafun_streaming.stats.stats_utils import RunningStats
 from datafun_toolkit.logger import get_logger, log_header, log_path
 from dotenv import load_dotenv
+import matplotlib.pyplot as plt
 
 from streaming.core.utils import log_env_vars
 from streaming.data_engineering.derived_fields import enrich_message
@@ -77,6 +78,17 @@ DATA_DIR: Final[Path] = ROOT_DIR / "data"
 OUTPUT_DIR: Final[Path] = DATA_DIR / "output"
 
 OUTPUT_CSV: Final[Path] = OUTPUT_DIR / "consumed_sales_dawson.csv"
+PAYMENT_METHODS_BY_REGION_CSV: Final[Path] = (
+    OUTPUT_DIR / "payment_methods_by_region_dawson.csv"
+)
+PAYMENT_METHODS_BY_REGION_CHART: Final[Path] = (
+    OUTPUT_DIR / "payment_methods_by_region_dawson.png"
+)
+PAYMENT_METHODS_BY_REGION_FIELDNAMES: Final[list[str]] = [
+    "region_id",
+    "payment_method",
+    "message_count",
+]
 
 REGIONS_CSV: Final[Path] = DATA_DIR / "regions.csv"
 PRODUCTS_CSV: Final[Path] = DATA_DIR / "products.csv"
@@ -98,6 +110,12 @@ def log_paths() -> None:
     log_path(LOG, "ROOT_DIR", ROOT_DIR)
     log_path(LOG, "DATA_DIR", DATA_DIR)
     log_path(LOG, "OUTPUT_CSV", OUTPUT_CSV)
+    log_path(LOG, "PAYMENT_METHODS_BY_REGION_CSV", PAYMENT_METHODS_BY_REGION_CSV)
+    log_path(
+        LOG,
+        "PAYMENT_METHODS_BY_REGION_CHART",
+        PAYMENT_METHODS_BY_REGION_CHART,
+    )
     log_path(LOG, "REGIONS_CSV", REGIONS_CSV)
     log_path(LOG, "PRODUCTS_CSV", PRODUCTS_CSV)
     log_path(LOG, "CURRENCIES_CSV", CURRENCIES_CSV)
@@ -216,6 +234,14 @@ def initialize_output() -> RunningStats:
         OUTPUT_CSV.unlink()
     LOG.info(f"Output CSV cleared: {OUTPUT_CSV.name}")
 
+    if PAYMENT_METHODS_BY_REGION_CSV.exists():
+        PAYMENT_METHODS_BY_REGION_CSV.unlink()
+    LOG.info(f"Summary CSV cleared: {PAYMENT_METHODS_BY_REGION_CSV.name}")
+
+    if PAYMENT_METHODS_BY_REGION_CHART.exists():
+        PAYMENT_METHODS_BY_REGION_CHART.unlink()
+    LOG.info(f"Summary chart cleared: {PAYMENT_METHODS_BY_REGION_CHART.name}")
+
     return RunningStats()
 
 
@@ -286,7 +312,7 @@ def consume_messages(
     *,
     region_lookup: dict[str, float],
     stats: RunningStats,
-) -> tuple[int, int]:
+) -> tuple[int, int, dict[tuple[str, str], int]]:
     """Consume and process messages from the Kafka topic.
 
     Runs until MAX_MESSAGES is reached or TIMEOUT_SECONDS elapses
@@ -300,7 +326,7 @@ def consume_messages(
         stats: Running statistics accumulator.
 
     Returns:
-        A tuple of (consumed_count, skipped_count).
+        A tuple of (consumed_count, skipped_count, payment_method_counts).
     """
     LOG.info("Consuming messages...")
     LOG.info(f"Waiting for up to {MAX_MESSAGES} message(s).")
@@ -308,6 +334,7 @@ def consume_messages(
 
     consumed_count = 0
     skipped_count = 0
+    payment_method_counts: dict[tuple[str, str], int] = {}
 
     while consumed_count + skipped_count < MAX_MESSAGES:
         row = consume_kafka_message(
@@ -341,6 +368,11 @@ def consume_messages(
             fieldnames=CONSUMED_FIELDNAMES,
         )
 
+        region_id = str(enriched.get("region_id", "UNKNOWN"))
+        payment_method = str(enriched.get("payment_method", "UNKNOWN"))
+        key = (region_id, payment_method)
+        payment_method_counts[key] = payment_method_counts.get(key, 0) + 1
+
         consumed_count += 1
         LOG.info("MESSAGE ACCEPTED")
         LOG.info(f"order={enriched['order_id']}")
@@ -352,13 +384,74 @@ def consume_messages(
         LOG.info(f"min=${stats.minimum:,.2f}")
         LOG.info(f"max=${stats.maximum:,.2f}")
 
-    return consumed_count, skipped_count
+    return consumed_count, skipped_count, payment_method_counts
+
+
+def save_payment_method_summary(
+    payment_method_counts: dict[tuple[str, str], int],
+) -> None:
+    """Write payment method counts by region to a CSV file."""
+    for (region_id, payment_method), count in sorted(payment_method_counts.items()):
+        append_csv_row(
+            path=PAYMENT_METHODS_BY_REGION_CSV,
+            row={
+                "region_id": region_id,
+                "payment_method": payment_method,
+                "message_count": count,
+            },
+            fieldnames=PAYMENT_METHODS_BY_REGION_FIELDNAMES,
+        )
+
+
+def save_payment_method_chart(
+    payment_method_counts: dict[tuple[str, str], int],
+) -> None:
+    """Write a grouped bar chart for payment method totals by region."""
+    if not payment_method_counts:
+        return
+
+    regions = sorted({region for region, _ in payment_method_counts})
+    payment_methods = sorted({method for _, method in payment_method_counts})
+
+    bar_width = 0.8 / max(len(payment_methods), 1)
+    region_positions = list(range(len(regions)))
+
+    plt.figure(figsize=(10, 6))
+    for method_index, payment_method in enumerate(payment_methods):
+        counts = [
+            payment_method_counts.get((region, payment_method), 0) for region in regions
+        ]
+        positions = [
+            position + (method_index * bar_width) for position in region_positions
+        ]
+        plt.bar(positions, counts, width=bar_width, label=payment_method)
+
+    tick_offset = (len(payment_methods) - 1) * bar_width / 2
+    tick_positions = [position + tick_offset for position in region_positions]
+    plt.xticks(tick_positions, regions)
+    plt.xlabel("Region")
+    plt.ylabel("Message Count")
+    plt.title("Payment Methods by Region")
+    plt.legend(title="Payment Method")
+    plt.tight_layout()
+    plt.savefig(PAYMENT_METHODS_BY_REGION_CHART)
+    plt.close()
 
 
 def save_artifacts() -> None:
     """Save output artifacts."""
     LOG.info("Saving artifacts...")
     log_path(LOG, "WROTE OUTPUT_CSV", OUTPUT_CSV)
+    log_path(
+        LOG,
+        "WROTE PAYMENT_METHODS_BY_REGION_CSV",
+        PAYMENT_METHODS_BY_REGION_CSV,
+    )
+    log_path(
+        LOG,
+        "WROTE PAYMENT_METHODS_BY_REGION_CHART",
+        PAYMENT_METHODS_BY_REGION_CHART,
+    )
 
 
 # ===========================================================================
@@ -416,9 +509,10 @@ def main() -> None:
 
     consumed_count = 0
     skipped_count = 0
+    payment_method_counts: dict[tuple[str, str], int] = {}
 
     try:
-        consumed_count, skipped_count = consume_messages(
+        consumed_count, skipped_count, payment_method_counts = consume_messages(
             consumer,
             region_lookup=region_lookup,
             stats=stats,
@@ -431,6 +525,9 @@ def main() -> None:
     LOG.info("SECTION E. Exit")
     LOG.info("========================")
 
+    save_payment_method_summary(payment_method_counts)
+    save_payment_method_chart(payment_method_counts)
+    save_artifacts()
     log_summary(consumed_count, skipped_count, stats, settings)
 
 
