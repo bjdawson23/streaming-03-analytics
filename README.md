@@ -255,6 +255,8 @@ Phase 4. Changed the Kafka topic set in .env: streaming-03-analytics-dawson
 Phase 5. I modified the consumer to write an additional summary CSV and generate a chart that shows payment methods by region.
 ```
 
+![Payment_method_by_Region](data/output/payment_methods_by_region_dawson.png)
+
 ### Results
 
 Describe what happened when you ran the producer and consumer.
